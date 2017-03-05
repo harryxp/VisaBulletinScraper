@@ -12,6 +12,8 @@ import Text.Printf (printf)
 -- TODO use a calendar library instead of strings
 -- TODO need another scraper for <= 2012 march
 
+extractEB2EB3Only = True
+
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
 fiscalYears = [2012,2013,2014,2015,2016,2017]
 months = ["october","november","december"
@@ -24,10 +26,10 @@ data TableContent = TableContent Int String [[String]]
 
 instance Show TableContent where
   show (TableContent year month content) = show year ++ "|" ++ month ++ "\n" ++
-    intercalate "\n" (map (intercalate "|") content)
+    (intercalate "\n" . map (intercalate "|")) content
 
 main :: IO ()
-main = mapM scrapePage [ (y,m) | y <- fiscalYears,m <- months] >>=
+main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
   putStrLn . intercalate "\n\n" . map show . concatMap id
 
 scrapePage :: (Int,String) -> IO [TableContent]
@@ -82,7 +84,7 @@ extractTable year month table = case scrapeStringLike table cellScraper of
     let cleanContent = map (filter (\x -> x /= '\n' && x /= '\160') . strip) content
         nRows = getNumRows year month content
         nCols = length content `div` nRows
-    in TableContent year month $ chunksOf nCols cleanContent
+    in (TableContent year month . perhapsFilterRows . chunksOf nCols) cleanContent
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
@@ -90,4 +92,9 @@ cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td"
 getNumRows :: Int -> String -> [String] -> Int
 getNumRows year month content | length content == 54 = 9
                               | length content == 48 = 8
-                              | otherwise = error "time to patch this hole"
+                              | otherwise = 8
+
+perhapsFilterRows :: [[String]] -> [[String]]
+perhapsFilterRows
+  | extractEB2EB3Only = (map snd) . (filter (\(i,_) -> elem i [0,2,3])) . zip [0..]
+  | otherwise = id
