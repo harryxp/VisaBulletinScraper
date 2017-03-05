@@ -2,12 +2,12 @@ name:                VisaBulletinScraper
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/VisaBulletinScraper#readme
+homepage:            https://github.com/harryxp/VisaBulletinScraper#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2017 Author name here
+author:              Harry Pan
+maintainer:          pan.xingzhi@gmail.com
+copyright:           2017 Harry Pan
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
@@ -42,4 +42,4 @@ test-suite VisaBulletinScraper-test
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/VisaBulletinScraper
+  location: https://github.com/harryxp/VisaBulletinScraper
