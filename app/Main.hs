@@ -3,9 +3,11 @@ import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
 import Text.HTML.Scalpel
   (AttributeName(AttributeString),Scraper,TagName(TagString)
-  ,chroot,hasClass,htmls,scrapeStringLike,scrapeURL,tagSelector,texts
+  ,chroot,hasClass,htmls,match,scrapeStringLike,scrapeURL,tagSelector,texts
   ,(@=),(@:),(//))
 import Text.Printf (printf)
+
+-- TODO curl each page only once
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
 --fiscalYears = [2014,2015,2016,2017]
@@ -45,6 +47,20 @@ tableScraper = htmls selector >>= return . filter (isInfixOf "Employ")
   where selector = (TagString "div" @: [hasClass "simple_richtextarea"]) //
                    (TagString "table" @: [hasClass "grid"])
 
+-- used for < 2016 may
+pageScraper2 :: Scraper String [String]
+pageScraper2 = chroot (TagString "div" @: [AttributeString "id" @= "main"]) tableScraper2
+
+tableScraper2 :: Scraper String [String]
+tableScraper2 = htmls selector >>= return . filter (isInfixOf "Employ")
+  where selector = (TagString "div" @: [match matcher])
+                   // tagSelector "table"
+        matcher "class" "visabulletinemploymenttable parbase employment_table_data" = True
+        matcher "class" "third_richtext_area simple_richtextarea" = True
+        matcher _ _ = True
+
+--
+
 extractTables :: Int -> String -> Maybe [String] -> [TableContent]
 extractTables _ _ Nothing = []
 extractTables year month (Just tables) = fmap (extractTable year month) tables
@@ -60,13 +76,4 @@ extractTable year month table = case scrapeStringLike table cellScraper of
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
-
--- used for < 2016 may
-pageScraper2 :: Scraper String [String]
-pageScraper2 = chroot (TagString "div" @: [AttributeString "id" @= "main"]) tableScraper2
-
-tableScraper2 :: Scraper String [String]
-tableScraper2 = htmls selector >>= return . filter (isInfixOf "Employ")
-  where selector = (TagString "div" @: [hasClass "visabulletinemploymenttable"])
-                   // tagSelector "table"
 
