@@ -8,12 +8,17 @@ import Text.HTML.Scalpel
 import Text.Printf (printf)
 
 -- TODO curl each page only once
+-- TODO getNumRows
+-- TODO use a calendar library instead of strings
+-- TODO need another scraper for <= 2012 march
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
---fiscalYears = [2014,2015,2016,2017]
---months = ["october","november","december","january","february","march","april","may","june","july","august","september"]
-fiscalYears = [2016]
-months = ["april"]
+fiscalYears = [2012,2013,2014,2015,2016,2017]
+months = ["october","november","december"
+         ,"january","february","march",
+         ,"april","may","june",
+         ,"july","august","september"
+         ]
 
 data TableContent = TableContent Int String [[String]]
 
@@ -70,10 +75,14 @@ extractTable year month table = case scrapeStringLike table cellScraper of
   Nothing -> TableContent year month []
   Just content ->
     let cleanContent = map (filter (\x -> x /= '\n' && x /= '\160') . strip) content
-        nRows = 9
+        nRows = getNumRows year month content
         nCols = length content `div` nRows
     in TableContent year month $ chunksOf nCols cleanContent
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
 
+getNumRows :: Int -> String -> [String] -> Int
+getNumRows year month content | length content == 54 = 9
+                              | length content == 48 = 8
+                              | otherwise == error "time to patch this hole"
