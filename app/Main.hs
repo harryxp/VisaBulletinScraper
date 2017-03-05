@@ -1,5 +1,5 @@
 import Control.Applicative ((<|>))
-import Data.List (intercalate,isInfixOf,sortBy)
+import Data.List (intercalate,isInfixOf,sort)
 import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
 import Data.Time.Format (defaultTimeLocale,formatTime,parseTimeM)
@@ -34,7 +34,7 @@ tableContentTransformer =
   (if applyDateReformatter then dateReformatter else id)
 
 data TableType = TypeA | TypeB deriving (Eq,Ord,Show)
-data TableContent = TableContent LocalTime TableType [[String]]
+data TableContent = TableContent LocalTime TableType [[String]] deriving (Eq,Ord)
 
 instance Show TableContent where
   show (TableContent yearMonth tType content) =
@@ -66,10 +66,10 @@ convertTableContent (TableContent yearMonth tType content) =
 
 main :: IO ()
 main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
-  putStrLn . intercalate "\n" .
-  map show . concatMap (convertTableContent . tableContentTransformer) .
-  sortBy (tableTypeOrder) . concat
-  where tableTypeOrder (TableContent _ tType1 _) (TableContent _ tType2 _) = compare tType1 tType2
+  return . sort . concat >>= \tables ->
+  (putStrLn . intercalate "\n\n" . map (show . tableContentTransformer)) tables >>
+  putStrLn "\n--------------------\n" >>
+  (putStrLn . intercalate "\n" . map show . (concatMap convertTableContent)) tables
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
