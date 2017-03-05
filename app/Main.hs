@@ -1,10 +1,11 @@
+import Control.Applicative ((<|>))
 import Data.List (intercalate,isInfixOf)
 import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
 import Network.Curl (CurlCode(CurlOK), curlGetString)
 import Text.HTML.Scalpel
   (AttributeName(AttributeString),Scraper,TagName(TagString)
-  ,chroot,hasClass,htmls,match,scrapeStringLike,scrapeURL,tagSelector,texts
+  ,chroot,hasClass,htmls,match,scrapeStringLike,tagSelector,texts
   ,(@=),(@:),(//))
 import Text.Printf (printf)
 
@@ -42,9 +43,8 @@ scrapePage (fiscalYear,month) =
     employmentHtmlTables = pageContent >>= \maybeContent ->
       return (
         maybeContent >>= \content ->
-        case scrapeStringLike content pageScraper of
-          Nothing -> scrapeStringLike content pageScraper2
-          c@(Just _) -> c
+        scrapeStringLike content pageScraper <|>
+        scrapeStringLike content pageScraper2
       )
   in employmentHtmlTables >>= return . extractTables year month
 
