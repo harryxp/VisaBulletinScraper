@@ -1,13 +1,13 @@
 import Data.List (intercalate,isInfixOf)
 import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
+import Network.Curl (CurlCode(CurlOK), curlGetString)
 import Text.HTML.Scalpel
   (AttributeName(AttributeString),Scraper,TagName(TagString)
   ,chroot,hasClass,htmls,match,scrapeStringLike,scrapeURL,tagSelector,texts
   ,(@=),(@:),(//))
 import Text.Printf (printf)
 
--- TODO curl each page only once
 -- TODO getNumRows
 -- TODO use a calendar library instead of strings
 -- TODO need another scraper for <= 2012 march
@@ -15,8 +15,8 @@ import Text.Printf (printf)
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
 fiscalYears = [2012,2013,2014,2015,2016,2017]
 months = ["october","november","december"
-         ,"january","february","march",
-         ,"april","may","june",
+         ,"january","february","march"
+         ,"april","may","june"
          ,"july","august","september"
          ]
 
@@ -27,8 +27,8 @@ instance Show TableContent where
     intercalate "\n" (map (intercalate "|") content)
 
 main :: IO ()
-main = mapM scrapePage [ (y,m) | y <- fiscalYears,m <- months]
-  >>= putStrLn . intercalate "\n\n" . map show . concatMap id
+main = mapM scrapePage [ (y,m) | y <- fiscalYears,m <- months] >>=
+  putStrLn . intercalate "\n\n" . map show . concatMap id
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
@@ -37,10 +37,15 @@ scrapePage (fiscalYear,month) =
     year = if elem month ["october","november","december"] then fiscalYear-1 else fiscalYear
     url :: String
     url = printf urlFormat fiscalYear month year
+    pageContent :: IO (Maybe String)
+    pageContent = curlGetString url [] >>= \(code, content) ->
+      return (if code == CurlOK then Just content else Nothing)
     employmentHtmlTables :: IO (Maybe [String])
-    employmentHtmlTables = scrapeURL url pageScraper >>= \tables -> case tables of
-      Nothing -> scrapeURL url pageScraper2
-      v -> return v
+    employmentHtmlTables = pageContent >>= \maybeContent ->
+      return (
+        maybeContent >>= \content ->
+        scrapeStringLike content pageScraper >>
+        scrapeStringLike content pageScraper2)
   in employmentHtmlTables >>= return . extractTables year month
 
 -- used for >= 2016 may
@@ -85,4 +90,4 @@ cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td"
 getNumRows :: Int -> String -> [String] -> Int
 getNumRows year month content | length content == 54 = 9
                               | length content == 48 = 8
-                              | otherwise == error "time to patch this hole"
+                              | otherwise = error "time to patch this hole"
