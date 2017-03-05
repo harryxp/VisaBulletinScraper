@@ -8,10 +8,6 @@ import Text.HTML.Scalpel
   ,(@=),(@:),(//))
 import Text.Printf (printf)
 
--- TODO getNumRows
--- TODO use a calendar library instead of strings
--- TODO need another scraper for <= 2012 march
-
 extractEB2EB3Only = True
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
@@ -46,11 +42,13 @@ scrapePage (fiscalYear,month) =
     employmentHtmlTables = pageContent >>= \maybeContent ->
       return (
         maybeContent >>= \content ->
-        scrapeStringLike content pageScraper >>
-        scrapeStringLike content pageScraper2)
+        case scrapeStringLike content pageScraper of
+          Nothing -> scrapeStringLike content pageScraper2
+          c@(Just _) -> c
+      )
   in employmentHtmlTables >>= return . extractTables year month
 
--- used for >= 2016 may
+-- works for >= 2016 may
 pageScraper :: Scraper String [String]
 pageScraper = chroot (TagString "div" @: [hasClass "Visa_Contentpage_Category"]) tableScraper
 
@@ -59,7 +57,7 @@ tableScraper = htmls selector >>= return . filter (isInfixOf "Employ")
   where selector = (TagString "div" @: [hasClass "simple_richtextarea"]) //
                    (TagString "table" @: [hasClass "grid"])
 
--- used for < 2016 may
+-- works for < 2016 may
 pageScraper2 :: Scraper String [String]
 pageScraper2 = chroot (TagString "div" @: [AttributeString "id" @= "main"]) tableScraper2
 
