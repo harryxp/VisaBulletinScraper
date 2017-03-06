@@ -14,9 +14,9 @@ import Text.Printf (printf)
 -- Options
 csvSeparator = "|"
 
-useEb23Extractor = True     -- keep EB2 and EB3 rows only
-useChinaExtractor = True    -- keep China column only
-useDateReformatter = True   -- 01MAR13 -> 03/01/2013
+applyEb23Extractor = False    -- keep EB2 and EB3 rows only
+applyChinaExtractor = False   -- keep China column only
+applyDateReformatter = True   -- 01MAR13 -> 03/01/2013
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
 fiscalYears = [2012,2013,2014,2015,2016,2017]
@@ -28,9 +28,9 @@ months = ["october","november","december"
 
 --
 tableContentTransformer =
-  (if useEb23Extractor then eb23Extractor else id) .
-  (if useChinaExtractor then chinaExtractor else id) .
-  (if useDateReformatter then dateReformatter else id)
+  (if applyEb23Extractor then eb23Extractor else id) .
+  (if applyChinaExtractor then chinaExtractor else id) .
+  (if applyDateReformatter then dateReformatter else id)
 
 data TableType = TypeA | TypeB
   deriving (Eq,Ord,Show)
@@ -38,7 +38,7 @@ data TableContent = TableContent LocalTime TableType [[String]]
 
 instance Show TableContent where
   show (TableContent yearMonth ttype content) =
-    intercalate csvSeparator [show yearMonth,show ttype] ++ "\n" ++
+    intercalate csvSeparator [formatTime defaultTimeLocale "%D" yearMonth,show ttype] ++ "\n" ++
     (intercalate "\n" . map (intercalate csvSeparator)) content
 
 main :: IO ()
