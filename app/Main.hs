@@ -4,7 +4,7 @@ import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
 import Data.Time.Format (defaultTimeLocale,formatTime,parseTimeM)
 import Data.Time.LocalTime (LocalTime)
-import Network.Curl (CurlCode(CurlOK), curlGetString)
+import Network.Curl (CurlCode(CurlOK),curlGetString)
 import Text.HTML.Scalpel
   (AttributeName(AttributeString),Scraper,TagName(TagString)
   ,chroot,hasClass,htmls,match,scrapeStringLike,tagSelector,texts
@@ -34,17 +34,17 @@ tableContentTransformer =
 
 data TableType = TypeA | TypeB
   deriving (Eq,Ord,Show)
-data TableContent = TableContent Int String TableType [[String]]
+data TableContent = TableContent LocalTime TableType [[String]]
 
 instance Show TableContent where
-  show (TableContent year month ttype content) =
-    intercalate csvSeparator [show year, month, show ttype] ++ "\n" ++
+  show (TableContent yearMonth ttype content) =
+    intercalate csvSeparator [show yearMonth,show ttype] ++ "\n" ++
     (intercalate "\n" . map (intercalate csvSeparator)) content
 
 main :: IO ()
 main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
   putStrLn . intercalate "\n\n" . map (show . tableContentTransformer) . sortBy (tableTypeOrder) . concat
-  where tableTypeOrder (TableContent _ _ ttype1 _) (TableContent _ _ ttype2 _) = compare ttype1 ttype2
+  where tableTypeOrder (TableContent _ ttype1 _) (TableContent _ ttype2 _) = compare ttype1 ttype2
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
@@ -54,7 +54,7 @@ scrapePage (fiscalYear,month) =
     url :: String
     url = printf urlFormat fiscalYear month year
     pageContent :: IO (Maybe String)
-    pageContent = curlGetString url [] >>= \(code, content) ->
+    pageContent = curlGetString url [] >>= \(code,content) ->
       return (if code == CurlOK then Just content else Nothing)
     employmentHtmlTables :: IO (Maybe [String])
     employmentHtmlTables = pageContent >>= \maybeContent ->
@@ -63,7 +63,12 @@ scrapePage (fiscalYear,month) =
         scrapeStringLike content pageScraper <|>
         scrapeStringLike content pageScraper2
       )
-  in employmentHtmlTables >>= return . extractTables year month
+    buildYearMonth :: LocalTime
+    buildYearMonth =
+      case parseTimeM False defaultTimeLocale "%C%y %B %d" (intercalate " " [show year, month, "01"]) of
+        Just yearMonth -> yearMonth
+        Nothing -> error "No this cannot happen."
+  in employmentHtmlTables >>= return . extractTables buildYearMonth
 
 -- works for >= 2016 may
 pageScraper :: Scraper String [String]
@@ -88,42 +93,42 @@ tableScraper2 = htmls selector >>= return . filter (isInfixOf "Employ")
 
 --
 
-extractTables :: Int -> String -> Maybe [String] -> [TableContent]
-extractTables _ _ Nothing = []
-extractTables year month (Just tables)
+extractTables :: LocalTime -> Maybe [String] -> [TableContent]
+extractTables _ Nothing = []
+extractTables yearMonth (Just tables)
   | length tables <= 2 =
-      fmap (\(ttype, table) -> extractTable year month ttype table) (zip [TypeA, TypeB] tables)
+      fmap (\(ttype,table) -> extractTable yearMonth ttype table) (zip [TypeA,TypeB] tables)
   | otherwise = error "Unknown situation detected!"
 
-extractTable :: Int -> String -> TableType -> String -> TableContent
-extractTable year month ttype table = case scrapeStringLike table cellScraper of
-  Nothing -> TableContent year month ttype []
+extractTable :: LocalTime -> TableType -> String -> TableContent
+extractTable yearMonth ttype table = case scrapeStringLike table cellScraper of
+  Nothing -> TableContent yearMonth ttype []
   Just content ->
     let cleanContent = map (filter (\x -> x /= '\n' && x /= '\160') . strip) content
-        nRows = getNumRows year month content
+        nRows = getNumRows yearMonth content
         nCols = length content `div` nRows
-    in (TableContent year month ttype . chunksOf nCols) cleanContent
+    in (TableContent yearMonth ttype . chunksOf nCols) cleanContent
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
 
-getNumRows :: Int -> String -> [String] -> Int
-getNumRows year month content | length content == 54 = 9
+getNumRows :: LocalTime -> [String] -> Int
+getNumRows _ content | length content == 54 = 9
                               | length content == 48 = 8
                               | otherwise = 8
 --
 
 eb23Extractor :: TableContent -> TableContent
-eb23Extractor (TableContent year month ttype content)
-  = TableContent year month ttype (selectElementsByIndices [0,2,3] content)
+eb23Extractor (TableContent yearMonth ttype content)
+  = TableContent yearMonth ttype (selectElementsByIndices [0,2,3] content)
 
 chinaExtractor :: TableContent -> TableContent
-chinaExtractor (TableContent year month ttype content)
-  = TableContent year month ttype (map (selectElementsByIndices [0,2]) content)
+chinaExtractor (TableContent yearMonth ttype content)
+  = TableContent yearMonth ttype (map (selectElementsByIndices [0,2]) content)
 
 dateReformatter :: TableContent -> TableContent
-dateReformatter (TableContent year month ttype content)
-  = TableContent year month ttype (map (map reformatDate) content)
+dateReformatter (TableContent yearMonth ttype content)
+  = TableContent yearMonth ttype (map (map reformatDate) content)
   where reformatDate :: String -> String
         reformatDate d = case parseTime d of
           Just date -> formatTime defaultTimeLocale "%D" date
