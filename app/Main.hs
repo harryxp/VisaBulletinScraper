@@ -1,5 +1,5 @@
 import Control.Applicative ((<|>))
-import Data.List (intercalate,isInfixOf)
+import Data.List (intercalate,isInfixOf,sortBy)
 import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
 import Data.Time.Format (defaultTimeLocale,formatTime,parseTimeM)
@@ -33,16 +33,18 @@ tableContentTransformer =
   (if useDateReformatter then dateReformatter else id)
 
 data TableType = TypeA | TypeB
-  deriving Show
+  deriving (Eq,Ord,Show)
 data TableContent = TableContent Int String TableType [[String]]
 
 instance Show TableContent where
-  show (TableContent year month ttype content) = intercalate csvSeparator [show year, month, show ttype] ++ "\n" ++
+  show (TableContent year month ttype content) =
+    intercalate csvSeparator [show year, month, show ttype] ++ "\n" ++
     (intercalate "\n" . map (intercalate csvSeparator)) content
 
 main :: IO ()
 main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
-  putStrLn . intercalate "\n\n" . map (show . tableContentTransformer) . concat
+  putStrLn . intercalate "\n\n" . map (show . tableContentTransformer) . sortBy (tableTypeOrder) . concat
+  where tableTypeOrder (TableContent _ _ ttype1 _) (TableContent _ _ ttype2 _) = compare ttype1 ttype2
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
@@ -89,7 +91,8 @@ tableScraper2 = htmls selector >>= return . filter (isInfixOf "Employ")
 extractTables :: Int -> String -> Maybe [String] -> [TableContent]
 extractTables _ _ Nothing = []
 extractTables year month (Just tables)
-  | length tables <= 2 = fmap (\(ttype, table) -> extractTable year month ttype table) (zip [TypeA, TypeB] tables)
+  | length tables <= 2 =
+      fmap (\(ttype, table) -> extractTable year month ttype table) (zip [TypeA, TypeB] tables)
   | otherwise = error "Unknown situation detected!"
 
 extractTable :: Int -> String -> TableType -> String -> TableContent
