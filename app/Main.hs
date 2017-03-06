@@ -9,7 +9,9 @@ import Text.HTML.Scalpel
   ,(@=),(@:),(//))
 import Text.Printf (printf)
 
-extractEB2EB3Only = True
+csvSeparator = ","
+extractEb23Only = False
+extractChinaOnly = False
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
 fiscalYears = [2012,2013,2014,2015,2016,2017]
@@ -22,12 +24,12 @@ months = ["october","november","december"
 data TableContent = TableContent Int String [[String]]
 
 instance Show TableContent where
-  show (TableContent year month content) = show year ++ "|" ++ month ++ "\n" ++
-    (intercalate "\n" . map (intercalate "|")) content
+  show (TableContent year month content) = show year ++ csvSeparator ++ month ++ "\n" ++
+    (intercalate "\n" . map (intercalate csvSeparator)) content
 
 main :: IO ()
 main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
-  putStrLn . intercalate "\n\n" . map show . concatMap id
+  putStrLn . intercalate "\n\n" . map (show . chinaFilter . eb23Filter) . concat
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
@@ -82,7 +84,7 @@ extractTable year month table = case scrapeStringLike table cellScraper of
     let cleanContent = map (filter (\x -> x /= '\n' && x /= '\160') . strip) content
         nRows = getNumRows year month content
         nCols = length content `div` nRows
-    in (TableContent year month . perhapsFilterRows . chunksOf nCols) cleanContent
+    in (TableContent year month . chunksOf nCols) cleanContent
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
@@ -91,8 +93,18 @@ getNumRows :: Int -> String -> [String] -> Int
 getNumRows year month content | length content == 54 = 9
                               | length content == 48 = 8
                               | otherwise = 8
+--
 
-perhapsFilterRows :: [[String]] -> [[String]]
-perhapsFilterRows
-  | extractEB2EB3Only = (map snd) . (filter (\(i,_) -> elem i [0,2,3])) . zip [0..]
-  | otherwise = id
+eb23Filter :: TableContent -> TableContent
+eb23Filter tc@(TableContent year month content)
+  | extractEb23Only = TableContent year month (selectElementsByIndices [0,2,3] content)
+  | otherwise = tc
+
+chinaFilter :: TableContent -> TableContent
+chinaFilter tc@(TableContent year month content)
+  | extractChinaOnly = TableContent year month (map (selectElementsByIndices [0,2]) content)
+  | otherwise = tc
+
+selectElementsByIndices :: [Int] -> [a] -> [a]
+selectElementsByIndices indices = (map snd) . (filter (\(i,_) -> elem i indices)) . zip [0..]
+
