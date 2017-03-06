@@ -27,24 +27,49 @@ months = ["october","november","december"
          ]
 
 --
+tableContentTransformer :: TableContent -> TableContent
 tableContentTransformer =
   (if applyEb23Extractor then eb23Extractor else id) .
   (if applyChinaExtractor then chinaExtractor else id) .
   (if applyDateReformatter then dateReformatter else id)
 
-data TableType = TypeA | TypeB
-  deriving (Eq,Ord,Show)
+data TableType = TypeA | TypeB deriving (Eq,Ord,Show)
 data TableContent = TableContent LocalTime TableType [[String]]
 
 instance Show TableContent where
-  show (TableContent yearMonth ttype content) =
-    intercalate csvSeparator [formatTime defaultTimeLocale "%D" yearMonth,show ttype] ++ "\n" ++
+  show (TableContent yearMonth tType content) =
+    intercalate csvSeparator [formatTime defaultTimeLocale "%D" yearMonth,show tType] ++ "\n" ++
     (intercalate "\n" . map (intercalate csvSeparator)) content
+
+data VisaAvailability = VisaAvailability { yearMonth :: LocalTime
+                                         , tableType :: TableType
+                                         , visaCategory :: String
+                                         , country :: String
+                                         , availability :: String
+                                         }
+
+instance Show VisaAvailability where
+  show (VisaAvailability yearMonth tType visaCategory country availability) =
+    intercalate csvSeparator
+      [formatTime defaultTimeLocale "%D" yearMonth,show tType,visaCategory,country,availability]
+
+convertTableContent :: TableContent -> [VisaAvailability]
+convertTableContent (TableContent yearMonth tType content) =
+  let
+    countries :: [String]
+    countries = (tail . head) content
+    convertRow :: [String] -> [VisaAvailability]
+    convertRow (category:dates) =
+      map (\(c,d) -> VisaAvailability yearMonth tType category c d) (zip countries dates)
+    convertRow _ = error "Empty row!"
+  in concatMap convertRow (tail content)
 
 main :: IO ()
 main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
-  putStrLn . intercalate "\n\n" . map (show . tableContentTransformer) . sortBy (tableTypeOrder) . concat
-  where tableTypeOrder (TableContent _ ttype1 _) (TableContent _ ttype2 _) = compare ttype1 ttype2
+  putStrLn . intercalate "\n" .
+  map show . concatMap (convertTableContent . tableContentTransformer) .
+  sortBy (tableTypeOrder) . concat
+  where tableTypeOrder (TableContent _ tType1 _) (TableContent _ tType2 _) = compare tType1 tType2
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
@@ -97,17 +122,17 @@ extractTables :: LocalTime -> Maybe [String] -> [TableContent]
 extractTables _ Nothing = []
 extractTables yearMonth (Just tables)
   | length tables <= 2 =
-      fmap (\(ttype,table) -> extractTable yearMonth ttype table) (zip [TypeA,TypeB] tables)
+      fmap (\(tType,table) -> extractTable yearMonth tType table) (zip [TypeA,TypeB] tables)
   | otherwise = error "Unknown situation detected!"
 
 extractTable :: LocalTime -> TableType -> String -> TableContent
-extractTable yearMonth ttype table = case scrapeStringLike table cellScraper of
-  Nothing -> TableContent yearMonth ttype []
+extractTable yearMonth tType table = case scrapeStringLike table cellScraper of
+  Nothing -> TableContent yearMonth tType []
   Just content ->
     let cleanContent = map (filter (\x -> x /= '\n' && x /= '\160') . strip) content
         nRows = getNumRows yearMonth content
         nCols = length content `div` nRows
-    in (TableContent yearMonth ttype . chunksOf nCols) cleanContent
+    in (TableContent yearMonth tType . chunksOf nCols) cleanContent
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
@@ -119,16 +144,16 @@ getNumRows _ content | length content == 54 = 9
 --
 
 eb23Extractor :: TableContent -> TableContent
-eb23Extractor (TableContent yearMonth ttype content)
-  = TableContent yearMonth ttype (selectElementsByIndices [0,2,3] content)
+eb23Extractor (TableContent yearMonth tType content)
+  = TableContent yearMonth tType (selectElementsByIndices [0,2,3] content)
 
 chinaExtractor :: TableContent -> TableContent
-chinaExtractor (TableContent yearMonth ttype content)
-  = TableContent yearMonth ttype (map (selectElementsByIndices [0,2]) content)
+chinaExtractor (TableContent yearMonth tType content)
+  = TableContent yearMonth tType (map (selectElementsByIndices [0,2]) content)
 
 dateReformatter :: TableContent -> TableContent
-dateReformatter (TableContent yearMonth ttype content)
-  = TableContent yearMonth ttype (map (map reformatDate) content)
+dateReformatter (TableContent yearMonth tType content)
+  = TableContent yearMonth tType (map (map reformatDate) content)
   where reformatDate :: String -> String
         reformatDate d = case parseTime d of
           Just date -> formatTime defaultTimeLocale "%D" date
