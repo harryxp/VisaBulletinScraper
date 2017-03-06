@@ -2,6 +2,8 @@ import Control.Applicative ((<|>))
 import Data.List (intercalate,isInfixOf)
 import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
+import Data.Time.Format (defaultTimeLocale,formatTime,parseTimeM)
+import Data.Time.LocalTime (LocalTime)
 import Network.Curl (CurlCode(CurlOK), curlGetString)
 import Text.HTML.Scalpel
   (AttributeName(AttributeString),Scraper,TagName(TagString)
@@ -9,9 +11,12 @@ import Text.HTML.Scalpel
   ,(@=),(@:),(//))
 import Text.Printf (printf)
 
-csvSeparator = ","
-extractEb23Only = False
-extractChinaOnly = False
+-- Options
+csvSeparator = "|"
+
+useEb23Extractor = True     -- keep EB2 and EB3 rows only
+useChinaExtractor = True    -- keep China column only
+useDateReformatter = True   -- 01MAR13 -> 03/01/2013
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
 fiscalYears = [2012,2013,2014,2015,2016,2017]
@@ -21,6 +26,12 @@ months = ["october","november","december"
          ,"july","august","september"
          ]
 
+--
+tableContentTransformer =
+  (if useEb23Extractor then eb23Extractor else id) .
+  (if useChinaExtractor then chinaExtractor else id) .
+  (if useDateReformatter then dateReformatter else id)
+
 data TableContent = TableContent Int String [[String]]
 
 instance Show TableContent where
@@ -29,7 +40,7 @@ instance Show TableContent where
 
 main :: IO ()
 main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
-  putStrLn . intercalate "\n\n" . map (show . chinaFilter . eb23Filter) . concat
+  putStrLn . intercalate "\n\n" . map (show . tableContentTransformer) . concat
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
@@ -95,15 +106,23 @@ getNumRows year month content | length content == 54 = 9
                               | otherwise = 8
 --
 
-eb23Filter :: TableContent -> TableContent
-eb23Filter tc@(TableContent year month content)
-  | extractEb23Only = TableContent year month (selectElementsByIndices [0,2,3] content)
-  | otherwise = tc
+eb23Extractor :: TableContent -> TableContent
+eb23Extractor (TableContent year month content)
+  = TableContent year month (selectElementsByIndices [0,2,3] content)
 
-chinaFilter :: TableContent -> TableContent
-chinaFilter tc@(TableContent year month content)
-  | extractChinaOnly = TableContent year month (map (selectElementsByIndices [0,2]) content)
-  | otherwise = tc
+chinaExtractor :: TableContent -> TableContent
+chinaExtractor (TableContent year month content)
+  = TableContent year month (map (selectElementsByIndices [0,2]) content)
+
+dateReformatter :: TableContent -> TableContent
+dateReformatter (TableContent year month content)
+  = TableContent year month (map (map reformatDate) content)
+  where reformatDate :: String -> String
+        reformatDate d = case parseTime d of
+          Just date -> formatTime defaultTimeLocale "%D" date
+          Nothing -> d
+        parseTime :: String -> Maybe LocalTime
+        parseTime = parseTimeM False defaultTimeLocale "%d%h%y"
 
 selectElementsByIndices :: [Int] -> [a] -> [a]
 selectElementsByIndices indices = (map snd) . (filter (\(i,_) -> elem i indices)) . zip [0..]
