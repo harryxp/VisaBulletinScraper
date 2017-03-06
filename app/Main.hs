@@ -32,10 +32,12 @@ tableContentTransformer =
   (if useChinaExtractor then chinaExtractor else id) .
   (if useDateReformatter then dateReformatter else id)
 
-data TableContent = TableContent Int String [[String]]
+data TableType = TypeA | TypeB
+  deriving Show
+data TableContent = TableContent Int String TableType [[String]]
 
 instance Show TableContent where
-  show (TableContent year month content) = show year ++ csvSeparator ++ month ++ "\n" ++
+  show (TableContent year month ttype content) = intercalate csvSeparator [show year, month, show ttype] ++ "\n" ++
     (intercalate "\n" . map (intercalate csvSeparator)) content
 
 main :: IO ()
@@ -86,16 +88,18 @@ tableScraper2 = htmls selector >>= return . filter (isInfixOf "Employ")
 
 extractTables :: Int -> String -> Maybe [String] -> [TableContent]
 extractTables _ _ Nothing = []
-extractTables year month (Just tables) = fmap (extractTable year month) tables
+extractTables year month (Just tables)
+  | length tables <= 2 = fmap (\(ttype, table) -> extractTable year month ttype table) (zip [TypeA, TypeB] tables)
+  | otherwise = error "Unknown situation detected!"
 
-extractTable :: Int -> String -> String -> TableContent
-extractTable year month table = case scrapeStringLike table cellScraper of
-  Nothing -> TableContent year month []
+extractTable :: Int -> String -> TableType -> String -> TableContent
+extractTable year month ttype table = case scrapeStringLike table cellScraper of
+  Nothing -> TableContent year month ttype []
   Just content ->
     let cleanContent = map (filter (\x -> x /= '\n' && x /= '\160') . strip) content
         nRows = getNumRows year month content
         nCols = length content `div` nRows
-    in (TableContent year month . chunksOf nCols) cleanContent
+    in (TableContent year month ttype . chunksOf nCols) cleanContent
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
@@ -107,16 +111,16 @@ getNumRows year month content | length content == 54 = 9
 --
 
 eb23Extractor :: TableContent -> TableContent
-eb23Extractor (TableContent year month content)
-  = TableContent year month (selectElementsByIndices [0,2,3] content)
+eb23Extractor (TableContent year month ttype content)
+  = TableContent year month ttype (selectElementsByIndices [0,2,3] content)
 
 chinaExtractor :: TableContent -> TableContent
-chinaExtractor (TableContent year month content)
-  = TableContent year month (map (selectElementsByIndices [0,2]) content)
+chinaExtractor (TableContent year month ttype content)
+  = TableContent year month ttype (map (selectElementsByIndices [0,2]) content)
 
 dateReformatter :: TableContent -> TableContent
-dateReformatter (TableContent year month content)
-  = TableContent year month (map (map reformatDate) content)
+dateReformatter (TableContent year month ttype content)
+  = TableContent year month ttype (map (map reformatDate) content)
   where reformatDate :: String -> String
         reformatDate d = case parseTime d of
           Just date -> formatTime defaultTimeLocale "%D" date
