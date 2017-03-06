@@ -12,6 +12,9 @@ import Text.HTML.Scalpel
 import Text.Printf (printf)
 
 -- Options
+visaBulletinFile = "VisaBulletin.csv"
+visaBulletinFileUnpivoted = "VisaBulletinUnpivoted.csv"
+
 csvSeparator = "|"
 
 applyEb23Extractor = False    -- keep EB2 and EB3 rows only
@@ -53,8 +56,8 @@ instance Show VisaAvailability where
     intercalate csvSeparator
       [formatTime defaultTimeLocale "%D" yearMonth,show tType,visaCategory,country,availability]
 
-convertTableContent :: TableContent -> [VisaAvailability]
-convertTableContent (TableContent yearMonth tType content) =
+unpivotTableContent :: TableContent -> [VisaAvailability]
+unpivotTableContent (TableContent yearMonth tType content) =
   let
     countries :: [String]
     countries = (tail . head) content
@@ -66,10 +69,9 @@ convertTableContent (TableContent yearMonth tType content) =
 
 main :: IO ()
 main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
-  return . sort . concat >>= \tables ->
-  (putStrLn . intercalate "\n\n" . map (show . tableContentTransformer)) tables >>
-  putStrLn "\n--------------------\n" >>
-  (putStrLn . intercalate "\n" . map show . (concatMap convertTableContent)) tables
+  return . sort . (map tableContentTransformer) . concat >>= \tables ->
+  (writeFile visaBulletinFile . intercalate "\n\n" . map show) tables >>
+  (writeFile visaBulletinFileUnpivoted . intercalate "\n" . map show . (concatMap unpivotTableContent)) tables
 
 scrapePage :: (Int,String) -> IO [TableContent]
 scrapePage (fiscalYear,month) =
