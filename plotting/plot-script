@@ -1,0 +1,20 @@
+set terminal pngcairo size 2048, 1024
+set output 'VisaAvailabilityChina.png'
+set title 'Green Card Visa Availability - China' font ',20'
+
+set grid ytics linecolor rgb '#505050' linewidth 2
+
+set xdata time
+set ydata time
+set timefmt '%m/%d/%y'
+set xlabel 'Month'
+set ylabel 'Availability'
+
+do for [i=1:4] {
+    set style line i linewidth 2
+}
+
+plot 'china-2nd-A.dat' using 1:2 title 'China EB2 A' with linespoints linestyle 1, \
+     'china-2nd-B.dat' using 1:2 title 'China EB2 B' with linespoints linestyle 2, \
+     'china-3rd-A.dat' using 1:2 title 'China EB3 A' with linespoints linestyle 3, \
+     'china-3rd-B.dat' using 1:2 title 'China EB3 B' with linespoints linestyle 4
