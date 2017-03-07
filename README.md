@@ -8,13 +8,13 @@ If you are waiting for your green card, using this to get statistics may help yo
 
 `app/Main.hs` contains a few options to tweak at the top.  Currently this program only extracts employment-based visa information but can be easily adapted to work with other types.
 
-The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoteD.csv`.  If you have `gnuplot` and `perl` you can use the stuff under `plotting/`:
+The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoted.csv`.  If you have `gnuplot` and `perl` you can use the stuff under `plotting/`:
 
     cd plotting/
     ./extract.pl ../VisaBulletinUnpivoted.csv
     gnuplot plot-script
 
-to produce beautiful pictures like this one:
+to produce beautiful charts like this one:
 
 ![Green Card Visa Availability - China](plotting/VisaAvailabilityChina.png)
 
