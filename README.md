@@ -13,9 +13,9 @@ The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoted.csv`.  T
 1. Use [Google Charts](https://developers.google.com/chart/):
 
         cd plotting/google-charts/
-        ./extract-for-google-charts.pl ../../VisaBulletinUnpivoted.csv > google-charts.html
+        ./extract-for-google-charts.pl ../../VisaBulletinUnpivoted.csv > charts.html
 
-[link to interactive chart](https://rawgit.com/harryxp/VisaBulletinScraper/master/plotting/google-charts/google-charts.html)
+[link to interactive chart](https://rawgit.com/harryxp/VisaBulletinScraper/master/plotting/google-charts/charts.html)
 
 2. Use `gnuplot` and `perl`:
 
@@ -27,6 +27,8 @@ The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoted.csv`.  T
 
 TODO:
 - Plotting using Haskell?
-- Oct 2012 is skipped - it has an irregular URL.
 - `getNumRows` could be smarter?
 - Need another scraper for <= 2012 march.
+- Oct 2012 is skipped - it has an irregular URL.
+- Find URLs from https://travel.state.gov/content/visas/en/law-and-policy/bulletin.html .
+- plotting/google-charts/extract-for-google-charts.pl can be improved.

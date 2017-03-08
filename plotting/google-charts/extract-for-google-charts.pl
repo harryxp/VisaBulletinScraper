@@ -80,32 +80,32 @@ sub build_js_date
 sub build_js_divs
 {
     my $countries = shift(@_);
-    my $js_divs_code = '';
+    my @js_divs_code = ();
     foreach my $country (@$countries) {
-        $js_divs_code .= "<div id=\"${country}_chart_div\"></div>\n"
+        push(@js_divs_code, "<div id=\"${country}_chart_div\"></div>");
     }
-    return $js_divs_code;
+    return join("\n", @js_divs_code);
 }
 
 sub build_js_callbacks_code
 {
     my $countries = shift(@_);
-    my $js_callbacks_code = '';
+    my @js_callbacks_code = ();
     foreach my $country (@$countries) {
-        $js_callbacks_code .= "google.charts.setOnLoadCallback(draw${country}Chart);\n"
+        push(@js_callbacks_code, "google.charts.setOnLoadCallback(draw${country}Chart);");
     }
-    return $js_callbacks_code;
+    return join("\n", @js_callbacks_code);
 }
 
 sub build_js_draw_functions_code
 {
     my $availability_by_column_by_month_by_country = shift(@_);
-    my $js_draw_functions_code = '';
+    my @js_draw_functions_code = ();
     foreach my $country (keys(%$availability_by_column_by_month_by_country)) {
-        $js_draw_functions_code .= build_js_draw_function_code(
-            $country, $availability_by_column_by_month_by_country->{$country});
+        push(@js_draw_functions_code, build_js_draw_function_code(
+            $country, $availability_by_column_by_month_by_country->{$country}));
     }
-    return $js_draw_functions_code;
+    return join("\n", @js_draw_functions_code);
 }
 
 sub build_js_draw_function_code
