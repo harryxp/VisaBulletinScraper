@@ -4,10 +4,10 @@ use strict;
 use warnings;
 
 my @patterns_and_filenames = (
-    [qr/TypeA\|2nd\|china/i, 'china-2nd-A.dat'],
-    [qr/TypeA\|3rd\|china/i, 'china-3rd-A.dat'],
-    [qr/TypeB\|2nd\|china/i, 'china-2nd-B.dat'],
-    [qr/TypeB\|3rd\|china/i, 'china-3rd-B.dat'],
+    [qr/TypeA\|2nd\|china/i, 'china-eb2-A.dat'],
+    [qr/TypeB\|2nd\|china/i, 'china-eb2-B.dat'],
+    [qr/TypeA\|3rd\|china/i, 'china-eb3-A.dat'],
+    [qr/TypeB\|3rd\|china/i, 'china-eb3-B.dat'],
 );
 
 my %handles_by_filename = ();
@@ -15,7 +15,7 @@ my %handles_by_filename = ();
 while (<>) {
     foreach my $pf (@patterns_and_filenames) {
         my ($pattern, $filename) = @$pf;
-        if (m/$pattern/) {
+        if (/$pattern/) {
             chomp;
             my ($month, $table_type, $category, $country, $availability) = split(/\|/);
             my $handle = $handles_by_filename{$filename};
@@ -24,7 +24,6 @@ while (<>) {
                 $handles_by_filename{$filename} = $handle;
             }
             print {$handle} ("$month\t$availability\n");
-            next;
         }
     }
 }

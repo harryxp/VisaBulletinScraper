@@ -14,7 +14,7 @@ do for [i=1:4] {
     set style line i linewidth 2
 }
 
-plot 'china-2nd-A.dat' using 1:2 title 'China EB2 A' with linespoints linestyle 1, \
-     'china-2nd-B.dat' using 1:2 title 'China EB2 B' with linespoints linestyle 2, \
-     'china-3rd-A.dat' using 1:2 title 'China EB3 A' with linespoints linestyle 3, \
-     'china-3rd-B.dat' using 1:2 title 'China EB3 B' with linespoints linestyle 4
+plot 'china-eb2-A.dat' using 1:2 title 'China EB2 A' with linespoints linestyle 1, \
+     'china-eb2-B.dat' using 1:2 title 'China EB2 B' with linespoints linestyle 2, \
+     'china-eb3-A.dat' using 1:2 title 'China EB3 A' with linespoints linestyle 3, \
+     'china-eb3-B.dat' using 1:2 title 'China EB3 B' with linespoints linestyle 4
