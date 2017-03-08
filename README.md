@@ -15,7 +15,7 @@ The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoted.csv`.  T
         cd plotting/google-charts/
         ./extract-for-google-charts.pl ../../VisaBulletinUnpivoted.csv > charts.html
 
-[link to interactive chart](https://rawgit.com/harryxp/VisaBulletinScraper/master/plotting/google-charts/charts.html)
+  [link to interactive chart](https://rawgit.com/harryxp/VisaBulletinScraper/master/plotting/google-charts/charts.html)
 
 2. Use `gnuplot` and `perl`:
 
@@ -23,7 +23,7 @@ The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoted.csv`.  T
         ./extract-for-gnuplot.pl ../../VisaBulletinUnpivoted.csv
         gnuplot plot-script
 
-![Green Card Visa Availability - China](plotting/gnuplot/VisaAvailabilityChina.png)
+  ![Green Card Visa Availability - China](plotting/gnuplot/VisaAvailabilityChina.png)
 
 TODO:
 - Plotting using Haskell?
