@@ -22,7 +22,7 @@ applyChinaExtractor = False   -- keep China column only
 applyDateReformatter = True   -- 01MAR13 -> 03/01/2013
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
-fiscalYears = [2012,2013,2014,2015,2016,2017]
+fiscalYears = [2012..2017]
 months = ["october","november","december"
          ,"january","february","march"
          ,"april","may","june"
@@ -97,7 +97,7 @@ scrapePage (fiscalYear,month) =
         Nothing -> error "No this cannot happen."
   in employmentHtmlTables >>= return . extractTables buildYearMonth
 
--- works for >= 2016 may
+-- works for >= 2016 May
 pageScraper :: Scraper String [String]
 pageScraper = chroot (TagString "div" @: [hasClass "Visa_Contentpage_Category"]) tableScraper
 
@@ -106,7 +106,7 @@ tableScraper = htmls selector >>= return . filter (isInfixOf "Employ")
   where selector = (TagString "div" @: [hasClass "simple_richtextarea"]) //
                    (TagString "table" @: [hasClass "grid"])
 
--- works for < 2016 may
+-- works for >= 2012 April && < 2016 May
 pageScraper2 :: Scraper String [String]
 pageScraper2 = chroot (TagString "div" @: [AttributeString "id" @= "main"]) tableScraper2
 
@@ -128,21 +128,24 @@ extractTables yearMonth (Just tables)
   | otherwise = error "Unknown situation detected!"
 
 extractTable :: LocalTime -> TableType -> String -> TableContent
-extractTable yearMonth tType table = case scrapeStringLike table cellScraper of
+extractTable yearMonth tType table =
+  case (
+    scrapeStringLike table rowScraper >>= \rows ->
+    scrapeStringLike table cellScraper >>= \content ->
+      let cleanContent = map (strip . filter (\x -> x /= '\n' && x /= '\r' && x /= '\160')) content
+          nRows = length rows
+          nCols = length content `div` nRows
+      in (Just . TableContent yearMonth tType . chunksOf nCols) cleanContent
+  ) of
+  Just tc -> tc
   Nothing -> TableContent yearMonth tType []
-  Just content ->
-    let cleanContent = map (filter (\x -> x /= '\n' && x /= '\160') . strip) content
-        nRows = getNumRows yearMonth content
-        nCols = length content `div` nRows
-    in (TableContent yearMonth tType . chunksOf nCols) cleanContent
+
+rowScraper :: Scraper String [String]
+rowScraper = texts (tagSelector "tbody" // tagSelector "tr")
 
 cellScraper :: Scraper String [String]
 cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
 
-getNumRows :: LocalTime -> [String] -> Int
-getNumRows _ content | length content == 54 = 9
-                              | length content == 48 = 8
-                              | otherwise = 8
 --
 
 eb23Extractor :: TableContent -> TableContent

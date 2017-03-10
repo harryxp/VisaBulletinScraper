@@ -57,7 +57,8 @@ sub parse_file
                 my ($month, $table_type, $category, $country_str, $availability) = split(/\|/);
                 $month = build_js_date($month);
                 $availability = build_js_date($availability);
-                $availability_by_column_by_month_by_country->{$country}->{$month}->{$column} = $availability;
+                $availability_by_column_by_month_by_country->{$country}->{$month}->{$column} = $availability
+                    if defined($availability);
             }
         }
     }
@@ -71,7 +72,8 @@ sub build_js_date
         my ($m, $d, $y) = ($1-1, $2, $3);
         $m = sprintf("%02d", $m);           # TODO this is to make sorting work but there's gotta be a better way
         $d = sprintf("%02d", $d);
-        return "new Date(20$y, $m, $d)";    # TODO 20 is fragile
+        my $century = $y > 80 ? 19 : 20;
+        return "new Date($century$y, $m, $d)";
     } else {
         return "undefined";
     }
@@ -101,7 +103,7 @@ sub build_js_draw_functions_code
 {
     my $availability_by_column_by_month_by_country = shift(@_);
     my @js_draw_functions_code = ();
-    foreach my $country (keys(%$availability_by_column_by_month_by_country)) {
+    foreach my $country (sort(keys(%$availability_by_column_by_month_by_country))) {
         push(@js_draw_functions_code, build_js_draw_function_code(
             $country, $availability_by_column_by_month_by_country->{$country}));
     }
