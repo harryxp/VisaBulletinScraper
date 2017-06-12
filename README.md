@@ -27,7 +27,7 @@ The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoted.csv`.  T
 
 TODO:
 - Plotting using Haskell?
-- Need another scraper for <= 2012 march.
+- Need another scraper for <= Mar 2012.
 - Oct 2012 is skipped - it has an irregular URL.
 - Find URLs from https://travel.state.gov/content/visas/en/law-and-policy/bulletin.html .
 - plotting/google-charts/extract-for-google-charts.pl can be improved.
