@@ -1,21 +1,19 @@
+module Main (main) where
+
 import Control.Applicative ((<|>))
-import Data.List (intercalate,isInfixOf,sort)
-import Data.List.Split (chunksOf)
-import Data.String.Utils (strip)
+import Data.List (intercalate,sort)
 import Data.Time.Format (defaultTimeLocale,formatTime,parseTimeM)
 import Data.Time.LocalTime (LocalTime)
 import Network.Curl (CurlCode(CurlOK),curlGetString)
-import Text.HTML.Scalpel
-  (AttributeName(AttributeString),Scraper,TagName(TagString)
-  ,chroot,hasClass,htmls,match,scrapeStringLike,tagSelector,texts
-  ,(@=),(@:),(//))
+import Text.HTML.Scalpel (scrapeStringLike)
 import Text.Printf (printf)
 
--- Options
+import VisaBulletinScraper.Scrapers (extractTables,pageScraper,pageScraper2)
+import VisaBulletinScraper.Types (Table(..),VisaAvailability(..))
+
+-- Options and Constants
 visaBulletinFile = "VisaBulletin.csv"
 visaBulletinFileUnpivoted = "VisaBulletinUnpivoted.csv"
-
-csvSeparator = "|"
 
 applyEb23Extractor = False    -- keep EB2 and EB3 rows only
 applyChinaExtractor = False   -- keep China column only
@@ -29,136 +27,76 @@ months = ["october","november","december"
          ,"july","august","september"
          ]
 
---
-tableContentTransformer :: TableContent -> TableContent
-tableContentTransformer =
-  (if applyEb23Extractor then eb23Extractor else id) .
-  (if applyChinaExtractor then chinaExtractor else id) .
-  (if applyDateReformatter then dateReformatter else id)
+-- Main
+main :: IO ()
+main = do
+  tables <- concat <$> mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] :: IO [Table]
+  refinedTables <- (return . sort . fmap tableTransformer) tables :: IO [Table]
+  ( writeFile visaBulletinFile .
+    intercalate "\n\n" .
+    fmap show)
+    refinedTables
+  ( writeFile visaBulletinFileUnpivoted .
+    intercalate "\n" .
+    fmap show .
+    (concatMap unpivotTable))
+    refinedTables
 
-data TableType = TypeA | TypeB deriving (Eq,Ord,Show)
-data TableContent = TableContent LocalTime TableType [[String]] deriving (Eq,Ord)
+scrapePage :: (Int,String) -> IO [Table]
+scrapePage (fiscalYear,month) =
+  let year :: Int
+      year = if elem month ["october","november","december"]
+             then fiscalYear-1
+             else fiscalYear
+      url :: String
+      url = printf urlFormat fiscalYear month year
+      parseTime :: String -> Maybe LocalTime
+      parseTime = parseTimeM False defaultTimeLocale "%C%y %B %d"
+      yearMonth :: LocalTime
+      yearMonth =
+        case parseTime (intercalate " " [show year, month, "01"]) of
+          Just yearMonth -> yearMonth
+          Nothing        -> error "Couldn't parse date."
+  in do
+    (code,content)       <- curlGetString url []
+    maybePageContent     <- return (if code == CurlOK
+                                    then Just content
+                                    else Nothing) :: IO (Maybe String)
+    employmentHtmlTables <- return $ do
+      content <- maybePageContent :: Maybe String
+      scrapeStringLike content pageScraper <|> scrapeStringLike content pageScraper2
+    (return . extractTables yearMonth) employmentHtmlTables
 
-instance Show TableContent where
-  show (TableContent yearMonth tType content) =
-    intercalate csvSeparator [formatTime defaultTimeLocale "%D" yearMonth,show tType] ++ "\n" ++
-    (intercalate "\n" . map (intercalate csvSeparator)) content
-
-data VisaAvailability = VisaAvailability { yearMonth :: LocalTime
-                                         , tableType :: TableType
-                                         , visaCategory :: String
-                                         , country :: String
-                                         , availability :: String
-                                         }
-
-instance Show VisaAvailability where
-  show (VisaAvailability yearMonth tType visaCategory country availability) =
-    intercalate csvSeparator
-      [formatTime defaultTimeLocale "%D" yearMonth,show tType,visaCategory,country,availability]
-
-unpivotTableContent :: TableContent -> [VisaAvailability]
-unpivotTableContent (TableContent yearMonth tType content) =
+-- Transformers
+unpivotTable :: Table -> [VisaAvailability]
+unpivotTable (Table yearMonth tType rows) =
   let
     countries :: [String]
-    countries = (tail . head) content
+    countries = (tail . head) rows
     convertRow :: [String] -> [VisaAvailability]
     convertRow (category:dates) =
-      map (\(c,d) -> VisaAvailability yearMonth tType category c d) (zip countries dates)
+      (\(c,d) -> VisaAvailability yearMonth tType category c d) <$> (zip countries dates)
     convertRow _ = error "Empty row!"
-  in concatMap convertRow (tail content)
+  in concatMap convertRow (tail rows)
 
-main :: IO ()
-main = mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] >>=
-  return . sort . (map tableContentTransformer) . concat >>= \tables ->
-  (writeFile visaBulletinFile . intercalate "\n\n" . map show) tables >>
-  (writeFile visaBulletinFileUnpivoted . intercalate "\n" . map show . (concatMap unpivotTableContent)) tables
+tableTransformer :: Table -> Table
+tableTransformer =
+  (if applyEb23Extractor   then eb23Extractor   else id) .
+  (if applyChinaExtractor  then chinaExtractor  else id) .
+  (if applyDateReformatter then dateReformatter else id)
 
-scrapePage :: (Int,String) -> IO [TableContent]
-scrapePage (fiscalYear,month) =
-  let
-    year :: Int
-    year = if elem month ["october","november","december"] then fiscalYear-1 else fiscalYear
-    url :: String
-    url = printf urlFormat fiscalYear month year
-    pageContent :: IO (Maybe String)
-    pageContent = curlGetString url [] >>= \(code,content) ->
-      return (if code == CurlOK then Just content else Nothing)
-    employmentHtmlTables :: IO (Maybe [String])
-    employmentHtmlTables = pageContent >>= \maybeContent ->
-      return (
-        maybeContent >>= \content ->
-        scrapeStringLike content pageScraper <|>
-        scrapeStringLike content pageScraper2
-      )
-    buildYearMonth :: LocalTime
-    buildYearMonth =
-      case parseTimeM False defaultTimeLocale "%C%y %B %d" (intercalate " " [show year, month, "01"]) of
-        Just yearMonth -> yearMonth
-        Nothing -> error "No this cannot happen."
-  in employmentHtmlTables >>= return . extractTables buildYearMonth
 
--- works for >= 2016 May
-pageScraper :: Scraper String [String]
-pageScraper = chroot (TagString "div" @: [hasClass "Visa_Contentpage_Category"]) tableScraper
+eb23Extractor :: Table -> Table
+eb23Extractor (Table yearMonth tType rows)
+  = Table yearMonth tType (selectElementsByIndices [0,2,3] rows)
 
-tableScraper :: Scraper String [String]
-tableScraper = htmls selector >>= return . filter (isInfixOf "Employ")
-  where selector = (TagString "div" @: [hasClass "simple_richtextarea"]) //
-                   (TagString "table" @: [hasClass "grid"])
+chinaExtractor :: Table -> Table
+chinaExtractor (Table yearMonth tType rows)
+  = Table yearMonth tType ((selectElementsByIndices [0,2]) <$> rows)
 
--- works for >= 2012 April && < 2016 May
-pageScraper2 :: Scraper String [String]
-pageScraper2 = chroot (TagString "div" @: [AttributeString "id" @= "main"]) tableScraper2
-
-tableScraper2 :: Scraper String [String]
-tableScraper2 = htmls selector >>= return . filter (isInfixOf "Employ")
-  where selector = (TagString "div" @: [match matcher])
-                   // tagSelector "table"
-        matcher "class" "visabulletinemploymenttable parbase employment_table_data" = True
-        matcher "class" "third_richtext_area simple_richtextarea" = True
-        matcher _ _ = True
-
---
-
-extractTables :: LocalTime -> Maybe [String] -> [TableContent]
-extractTables _ Nothing = []
-extractTables yearMonth (Just tables)
-  | length tables <= 2 =
-      fmap (\(tType,table) -> extractTable yearMonth tType table) (zip [TypeA,TypeB] tables)
-  | otherwise = error "Unknown situation detected!"
-
-extractTable :: LocalTime -> TableType -> String -> TableContent
-extractTable yearMonth tType table =
-  case (
-    scrapeStringLike table rowScraper >>= \rows ->
-    scrapeStringLike table cellScraper >>= \content ->
-      let cleanContent = map (strip . filter (\x -> x /= '\n' && x /= '\r' && x /= '\160')) content
-          nRows = length rows
-          nCols = length content `div` nRows
-      in (Just . TableContent yearMonth tType . chunksOf nCols) cleanContent
-  ) of
-  Just tc -> tc
-  Nothing -> TableContent yearMonth tType []
-
-rowScraper :: Scraper String [String]
-rowScraper = texts (tagSelector "tbody" // tagSelector "tr")
-
-cellScraper :: Scraper String [String]
-cellScraper = texts (tagSelector "tbody" // tagSelector "tr" // tagSelector "td")
-
---
-
-eb23Extractor :: TableContent -> TableContent
-eb23Extractor (TableContent yearMonth tType content)
-  = TableContent yearMonth tType (selectElementsByIndices [0,2,3] content)
-
-chinaExtractor :: TableContent -> TableContent
-chinaExtractor (TableContent yearMonth tType content)
-  = TableContent yearMonth tType (map (selectElementsByIndices [0,2]) content)
-
-dateReformatter :: TableContent -> TableContent
-dateReformatter (TableContent yearMonth tType content)
-  = TableContent yearMonth tType (map (map reformatDate) content)
+dateReformatter :: Table -> Table
+dateReformatter (Table yearMonth tType rows)
+  = Table yearMonth tType (fmap reformatDate <$> rows)
   where reformatDate :: String -> String
         reformatDate d = case parseTime d of
           Just date -> formatTime defaultTimeLocale "%D" date
@@ -167,5 +105,5 @@ dateReformatter (TableContent yearMonth tType content)
         parseTime = parseTimeM False defaultTimeLocale "%d%h%y"
 
 selectElementsByIndices :: [Int] -> [a] -> [a]
-selectElementsByIndices indices = (map snd) . (filter (\(i,_) -> elem i indices)) . zip [0..]
+selectElementsByIndices indices = fmap snd . filter (\(i,_) -> elem i indices) . zip [0..]
 
