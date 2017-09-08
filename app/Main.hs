@@ -5,6 +5,9 @@ import Data.List (intercalate,sort)
 import Data.Time.Format (defaultTimeLocale,formatTime,parseTimeM)
 import Data.Time.LocalTime (LocalTime)
 import Network.Curl (CurlCode(CurlOK),curlGetString)
+import System.Environment (getArgs,getProgName)
+import System.Exit (exitFailure)
+import System.IO (hPutStrLn,stderr)
 import Text.HTML.Scalpel (scrapeStringLike)
 import Text.Printf (printf)
 
@@ -20,7 +23,7 @@ applyChinaExtractor = False   -- keep China column only
 applyDateReformatter = True   -- 01MAR13 -> 03/01/2013
 
 urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
-fiscalYears = [2012..2017]
+years = [2012..2017]
 months = ["october","november","december"
          ,"january","february","march"
          ,"april","may","june"
@@ -30,24 +33,36 @@ months = ["october","november","december"
 -- Main
 main :: IO ()
 main = do
-  tables <- concat <$> mapM scrapePage [(y,m) | y <- fiscalYears,m <- months] :: IO [Table]
+  prog <- getProgName
+  args <- getArgs
+  case args of
+    ["-y",year,"-m",month] -> scrapePageThenWriteFiles [read year] [month] True
+    []                     -> scrapePageThenWriteFiles years months  False
+    _                      -> hPutStrLn stderr ("Usage: " ++ prog ++ " [-y year -m month]") >>
+                              hPutStrLn stderr ("Examples:") >>
+                              hPutStrLn stderr ("    " ++ prog ++ " -y 2017 -m october    # fetch 10/2017 and append it to data files") >>
+                              hPutStrLn stderr ("    " ++ prog ++ "                       # fetch everything and overwrite the data files") >>
+                              exitFailure
+
+scrapePageThenWriteFiles :: [Int] -> [String] -> Bool -> IO ()
+scrapePageThenWriteFiles years months shouldAppend = do
+  tables <- concat <$> mapM scrapePage [(y,m) | y <- years,m <- months] :: IO [Table]
   refinedTables <- (return . sort . fmap tableTransformer) tables :: IO [Table]
-  ( writeFile visaBulletinFile .
-    intercalate "\n\n" .
-    fmap show)
+  let output = if shouldAppend then appendFile else writeFile
+  ( output visaBulletinFile .
+    concatMap ((++ "\n\n") . show))
     refinedTables
-  ( writeFile visaBulletinFileUnpivoted .
-    intercalate "\n" .
-    fmap show .
+  ( output visaBulletinFileUnpivoted .
+    concatMap ((++ "\n") . show) .
     (concatMap unpivotTable))
     refinedTables
 
 scrapePage :: (Int,String) -> IO [Table]
-scrapePage (fiscalYear,month) =
-  let year :: Int
-      year = if elem month ["october","november","december"]
-             then fiscalYear-1
-             else fiscalYear
+scrapePage (year,month) =
+  let fiscalYear :: Int
+      fiscalYear = if elem month ["october","november","december"]
+                   then year+1
+                   else year
       url :: String
       url = printf urlFormat fiscalYear month year
       parseTime :: String -> Maybe LocalTime
