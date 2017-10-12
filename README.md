@@ -6,8 +6,8 @@ you make sound decisions.
 
     stack setup
     stack build
-    stack exec VisaBulletinScraper-exe                      # retrieve all data (will overwrite data files)
-    stack exec VisaBulletinScraper-exe -y 2017 -m october   # retrieve data for a specific year/month and append it to the end of data files
+    stack exec VisaBulletinScraper-exe                          # retrieve all data (will overwrite data files)
+    stack exec VisaBulletinScraper-exe -- -y 2017 -m october    # retrieve data for a specific year/month and append it to the end of data files
 
 `app/Main.hs` contains a few options to tweak at the top.  Currently this
 program only extracts employment-based visa information but can be easily
