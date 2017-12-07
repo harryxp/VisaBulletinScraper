@@ -1,35 +1,26 @@
-module VisaBulletinScraper.Scrapers (extractTables,pageScraper,pageScraper2) where
+module VisaBulletinScraper.Scrapers (extractTables,pageScraper) where
 
 import Data.List (isInfixOf)
 import Data.List.Split (chunksOf)
 import Data.String.Utils (strip)
 import Data.Time.LocalTime (LocalTime)
 import Text.HTML.Scalpel
-  (AttributeName(AttributeString),Scraper,TagName(TagString)
-  ,chroot,hasClass,htmls,match,scrapeStringLike,tagSelector,texts
-  ,(@=),(@:),(//))
+  (Scraper,TagName(TagString)
+  ,chroot,htmls,match,scrapeStringLike,tagSelector,texts
+  ,(@:),(//))
 
 import VisaBulletinScraper.Types (Table(..),TableType(..))
 
--- works for >= 2016 May
 pageScraper :: Scraper String [String]
-pageScraper = chroot (TagString "div" @: [hasClass "Visa_Contentpage_Category"]) tableScraper
+pageScraper = chroot (TagString "div" @: [match matcher]) tableScraper
+  where matcher "class" "tsg-rwd-content-page-parsysxxx parsys" = True
+        matcher _ _ = False
 
 tableScraper :: Scraper String [String]
-tableScraper = htmls selector >>= return . filter (isInfixOf "Employ")
-  where selector = (TagString "div" @: [hasClass "simple_richtextarea"]) //
-                   (TagString "table" @: [hasClass "grid"])
-
--- works for >= 2012 April && < 2016 May
-pageScraper2 :: Scraper String [String]
-pageScraper2 = chroot (TagString "div" @: [AttributeString "id" @= "main"]) tableScraper2
-
-tableScraper2 :: Scraper String [String]
-tableScraper2 = htmls selector >>= return . filter (isInfixOf "Employ")
+tableScraper = htmls selector >>= return . filter (isInfixOf "Employment")
   where selector = (TagString "div" @: [match matcher]) // tagSelector "table"
-        matcher "class" "visabulletinemploymenttable parbase employment_table_data" = True
-        matcher "class" "third_richtext_area simple_richtextarea" = True
-        matcher _ _ = True
+        matcher "class" "tsg-rwd-text parbase section" = True
+        matcher _ _ = False
 
 --
 extractTables :: LocalTime -> Maybe [String] -> [Table]

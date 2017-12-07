@@ -1,6 +1,5 @@
 module Main (main) where
 
-import Control.Applicative ((<|>))
 import Data.List (intercalate,sort)
 import Data.Time.Format (defaultTimeLocale,formatTime,parseTimeM)
 import Data.Time.LocalTime (LocalTime)
@@ -11,7 +10,7 @@ import System.IO (hPutStrLn,stderr)
 import Text.HTML.Scalpel (scrapeStringLike)
 import Text.Printf (printf)
 
-import VisaBulletinScraper.Scrapers (extractTables,pageScraper,pageScraper2)
+import VisaBulletinScraper.Scrapers (extractTables,pageScraper)
 import VisaBulletinScraper.Types (Table(..),VisaAvailability(..))
 
 -- Options and Constants
@@ -22,7 +21,7 @@ applyEb23Extractor = False    -- keep EB2 and EB3 rows only
 applyChinaExtractor = False   -- keep China column only
 applyDateReformatter = True   -- 01MAR13 -> 03/01/2013
 
-urlFormat = "https://travel.state.gov/content/visas/en/law-and-policy/bulletin/%d/visa-bulletin-for-%s-%d.html"
+urlFormat = "https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/%d/visa-bulletin-for-%s-%d.html"
 years = [2012..2017]
 months = ["october","november","december"
          ,"january","february","march"
@@ -79,7 +78,7 @@ scrapePage (year,month) =
                                     else Nothing) :: IO (Maybe String)
     employmentHtmlTables <- return $ do
       content <- maybePageContent :: Maybe String
-      scrapeStringLike content pageScraper <|> scrapeStringLike content pageScraper2
+      scrapeStringLike content pageScraper
     (return . extractTables yearMonth) employmentHtmlTables
 
 -- Transformers
