@@ -36,5 +36,5 @@ TODO:
 - Plotting using Haskell?
 - Need another scraper for <= Mar 2012.
 - Oct 2012 is skipped - it has an irregular URL.
-- Find URLs from https://travel.state.gov/content/visas/en/law-and-policy/bulletin.html .
+- Find URLs from https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html .
 - plotting/google-charts/extract-for-google-charts.pl can be improved.
