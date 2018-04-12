@@ -15,7 +15,7 @@ adapted to work with other types.
 
 The program will spit out `VisaBulletin.csv` and `VisaBulletinUnpivoted.csv`.
 The latter is good for importing into databases and plotting.  I implemented
-two ways of plotting.
+two ways of plotting:
 
 1. Use [Google Charts](https://developers.google.com/chart/):
 
@@ -32,9 +32,10 @@ two ways of plotting.
 
   ![Green Card Visa Availability - China](plotting/gnuplot/VisaAvailabilityChina.png)
 
+`./plotting/plot.sh` does both for you.
+
 TODO:
 - Plotting using Haskell?
 - Need another scraper for <= Mar 2012.
 - Oct 2012 is skipped - it has an irregular URL.
-- Find URLs from https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html .
 - plotting/google-charts/extract-for-google-charts.pl can be improved.

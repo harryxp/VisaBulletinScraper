@@ -4,10 +4,10 @@ use strict;
 use warnings;
 
 my @patterns_and_filenames = (
-    [qr/TypeA\|2nd\|china/i, 'china-eb2-A.dat'],
-    [qr/TypeB\|2nd\|china/i, 'china-eb2-B.dat'],
-    [qr/TypeA\|3rd\|china/i, 'china-eb3-A.dat'],
-    [qr/TypeB\|3rd\|china/i, 'china-eb3-B.dat'],
+    [qr/TypeA\|2nd\|china/i, './plotting/gnuplot/china-eb2-A.dat'],
+    [qr/TypeB\|2nd\|china/i, './plotting/gnuplot/china-eb2-B.dat'],
+    [qr/TypeA\|3rd\|china/i, './plotting/gnuplot/china-eb3-A.dat'],
+    [qr/TypeB\|3rd\|china/i, './plotting/gnuplot/china-eb3-B.dat'],
 );
 
 my %handles_by_filename = ();
