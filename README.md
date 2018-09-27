@@ -22,7 +22,7 @@ two ways of plotting:
         cd plotting/google-charts/
         ./extract-for-google-charts.pl ../../VisaBulletinUnpivoted.csv > charts.html
 
-  [link to interactive chart](https://rawgit.com/harryxp/VisaBulletinScraper/master/plotting/google-charts/charts.html)
+  [**link to interactive chart**](http://www.unfetteredmind.us/charts.html)
 
 2. Use `gnuplot` and `perl`:
 
